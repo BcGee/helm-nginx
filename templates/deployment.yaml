@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "nginx.fullname" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ include "nginx.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "nginx.name" . }}
+    spec:
+      serviceAccountName: {{ include "nginx.fullname" . }}
+      containers:
+        - name: nginx
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            {{- if .Values.persistence.enabled }}
+            - name: nginx-data
+              mountPath: /usr/share/nginx/html
+            {{- end }}
+            {{- if .Values.secret.enabled }}
+            - name: nginx-secret
+              mountPath: /etc/nginx/secret
+              readOnly: true
+            {{- end }}
+      volumes:
+        {{- if .Values.persistence.enabled }}
+        - name: nginx-data
+          persistentVolumeClaim:
+            claimName: {{ .Values.persistence.name | default (include "nginx.fullname" .) }}
+        {{- end }}
+        {{- if .Values.secret.enabled }}
+        - name: nginx-secret
+          secret:
+            secretName: {{ .Values.secret.name | default (include "nginx.fullname" .) }}
+        {{- end }}

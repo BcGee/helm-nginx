@@ -1,0 +1,53 @@
+replicaCount: 2
+
+image:
+  repository: nginx
+  tag: "1.25.3"
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: ""
+
+secret:
+  enabled: false
+  name: ""
+  data: {}
+
+persistence:
+  enabled: false
+  accessModes:
+    - ReadWriteOnce
+  size: 1Gi
+  storageClass: ""
+  name: "nginx-pvc"
+
+service:
+  type: ClusterIP
+  port: 80
+
+hpa:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+
+pdb:
+  enabled: false
+  minAvailable: 1
+  maxUnavailable: null
+
+ingress:
+  enabled: false
+  className: "alb"
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+  # hosts 값을 아래처럼 직접 입력하세요.
+  # hosts:
+  #   - host: your.domain.com
+  #     paths:
+  #       - path: /
+  #         pathType: ImplementationSpecific
+  tls: [] 
