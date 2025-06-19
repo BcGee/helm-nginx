@@ -9,6 +9,6 @@ entries:
     name: nginx
     type: application
     urls:
-    - https://bcgee.github.io/helm-nginx/onboarding/8th/helm/nginx-0.1.0.tgz
+    - https://bcgee.github.io/helm-nginx/nginx-0.1.0.tgz
     version: 0.1.0
 generated: "2025-06-19T00:54:21.712544721Z"
