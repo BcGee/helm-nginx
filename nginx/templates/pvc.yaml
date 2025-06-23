@@ -8,4 +8,4 @@ spec:
   resources:
     requests:
       storage: {{ .Values.pvc.size }}
-  volumeName: nginx-pv 
+  storageClassName: {{ .Values.pvc.storageClassName | quote }} 
