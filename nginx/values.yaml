@@ -59,3 +59,8 @@ pvc:
   size: 1Gi
   storageClassName: "gp2"
   # 또는 gp3, standard 등 클러스터에 존재하는 StorageClass 이름 
+
+pv:
+  size: 1Gi
+  accessMode: ReadWriteOnce
+  hostPath: /mnt/data/nginx 
