@@ -22,15 +22,15 @@ spec:
           ports:
             - containerPort: 80
           volumeMounts:
-            - name: nginx-data
+            - name: nginx-index
               mountPath: /usr/share/nginx/html
             - name: nginx-secret
               mountPath: /etc/nginx/secret
               readOnly: true
       volumes:
-        - name: nginx-data
-          persistentVolumeClaim:
-            claimName: nginx-pvc
+        - name: nginx-index
+          configMap:
+            name: {{ include "nginx.fullname" . }}-index
         - name: nginx-secret
           secret:
             secretName: nginx-secret
