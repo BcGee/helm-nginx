@@ -1,16 +1,9 @@
-{{- if .Values.pdb.enabled }}
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: {{ include "nginx.fullname" . }}
+  name: nginx
 spec:
   selector:
     matchLabels:
-      app: {{ include "nginx.name" . }}
-  {{- if .Values.pdb.minAvailable }}
+      app: nginx
   minAvailable: {{ .Values.pdb.minAvailable }}
-  {{- end }}
-  {{- if .Values.pdb.maxUnavailable }}
-  maxUnavailable: {{ .Values.pdb.maxUnavailable }}
-  {{- end }}
-{{- end }} 

@@ -3,12 +3,22 @@ entries:
   nginx:
   - apiVersion: v2
     appVersion: 1.25.3
-    created: "2025-06-19T00:54:21.713835974Z"
+    created: "2025-06-23T06:02:32.847339738Z"
+    description: A Helm chart for Kubernetes NGINX
+    digest: 810f4bbcf540f489c1641b68a51e6ae85e161ea670ac5734892c7357ec480eb5
+    name: nginx
+    type: application
+    urls:
+    - https://BcGee.github.io/helm-nginx/nginx-0.2.0.tgz
+    version: 0.2.0
+  - apiVersion: v2
+    appVersion: 1.25.3
+    created: "2025-06-23T06:02:32.846992391Z"
     description: A Helm chart for Kubernetes NGINX
     digest: ada49313ccc9009b4396fca9f6b8829b4f02ab7a022f0307eeb66c5bbfaa438c
     name: nginx
     type: application
     urls:
-    - https://bcgee.github.io/helm-nginx/nginx-0.1.0.tgz
+    - https://BcGee.github.io/helm-nginx/nginx-0.1.0.tgz
     version: 0.1.0
-generated: "2025-06-19T00:54:21.712544721Z"
+generated: "2025-06-23T06:02:32.846487897Z"
