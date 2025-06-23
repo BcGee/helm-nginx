@@ -17,8 +17,8 @@ spec:
       serviceAccountName: nginx
       containers:
         - name: nginx
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          image: "{{ .Values.image.blue }}"
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
           volumeMounts:
