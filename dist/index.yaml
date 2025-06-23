@@ -3,42 +3,52 @@ entries:
   nginx:
   - apiVersion: v2
     appVersion: 1.25.3
-    created: "2025-06-23T06:22:25.268419847Z"
+    created: "2025-06-23T06:28:27.268456245Z"
+    description: A Helm chart for Kubernetes NGINX
+    digest: 23e957cdf97f808f82b86c82d0e7a2ec3372143f8b204ac7dc48dcd058daf7c0
+    name: nginx
+    type: application
+    urls:
+    - https://BcGee.github.io/helm-nginx/dist/nginx-0.5.0.tgz
+    version: 0.5.0
+  - apiVersion: v2
+    appVersion: 1.25.3
+    created: "2025-06-23T06:28:27.268064181Z"
     description: A Helm chart for Kubernetes NGINX
     digest: d023ee1ae86f860851a742981faaceec9b2598b659642c40144e8fe88fab6b58
     name: nginx
     type: application
     urls:
-    - https://BcGee.github.io/helm-nginx/nginx-0.4.0.tgz
+    - https://BcGee.github.io/helm-nginx/dist/nginx-0.4.0.tgz
     version: 0.4.0
   - apiVersion: v2
     appVersion: 1.25.3
-    created: "2025-06-23T06:22:25.268044648Z"
+    created: "2025-06-23T06:28:27.267711582Z"
     description: A Helm chart for Kubernetes NGINX
     digest: 9a92f87100013deadf444f677ea17f8a24b525eed612bd99c911c6e225dea002
     name: nginx
     type: application
     urls:
-    - https://BcGee.github.io/helm-nginx/nginx-0.3.0.tgz
+    - https://BcGee.github.io/helm-nginx/dist/nginx-0.3.0.tgz
     version: 0.3.0
   - apiVersion: v2
     appVersion: 1.25.3
-    created: "2025-06-23T06:22:25.267700453Z"
+    created: "2025-06-23T06:28:27.267356544Z"
     description: A Helm chart for Kubernetes NGINX
     digest: 810f4bbcf540f489c1641b68a51e6ae85e161ea670ac5734892c7357ec480eb5
     name: nginx
     type: application
     urls:
-    - https://BcGee.github.io/helm-nginx/nginx-0.2.0.tgz
+    - https://BcGee.github.io/helm-nginx/dist/nginx-0.2.0.tgz
     version: 0.2.0
   - apiVersion: v2
     appVersion: 1.25.3
-    created: "2025-06-23T06:22:25.267352122Z"
+    created: "2025-06-23T06:28:27.266983684Z"
     description: A Helm chart for Kubernetes NGINX
     digest: ada49313ccc9009b4396fca9f6b8829b4f02ab7a022f0307eeb66c5bbfaa438c
     name: nginx
     type: application
     urls:
-    - https://BcGee.github.io/helm-nginx/nginx-0.1.0.tgz
+    - https://BcGee.github.io/helm-nginx/dist/nginx-0.1.0.tgz
     version: 0.1.0
-generated: "2025-06-23T06:22:25.266762679Z"
+generated: "2025-06-23T06:28:27.266490527Z"
