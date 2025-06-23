@@ -51,3 +51,8 @@ ingress:
   #       - path: /
   #         pathType: ImplementationSpecific
   tls: [] 
+
+pvc:
+  accessMode: ReadWriteOnce
+  size: 1Gi
+  storageClassName: "" 
