@@ -20,7 +20,6 @@ persistence:
     - ReadWriteOnce
   size: 1Gi
   storageClass: ""
-  name: "nginx-pvc"
 
 service:
   type: ClusterIP
@@ -56,4 +55,6 @@ pvc:
 pv:
   size: 1Gi
   accessMode: ReadWriteOnce
-  hostPath: /mnt/data/nginx 
+  hostPath: /mnt/data/nginx
+
+indexConfigMapName: nginx-index 

@@ -30,7 +30,7 @@ spec:
       volumes:
         - name: nginx-index
           configMap:
-            name: {{ include "nginx.fullname" . }}-index
+            name: {{ .Values.indexConfigMapName }}
         - name: nginx-secret
           secret:
             secretName: nginx-secret
