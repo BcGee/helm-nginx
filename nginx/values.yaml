@@ -57,4 +57,5 @@ ingress:
 pvc:
   accessMode: ReadWriteOnce
   size: 1Gi
-  storageClassName: "" 
+  storageClassName: "gp2"
+  # 또는 gp3, standard 등 클러스터에 존재하는 StorageClass 이름 
