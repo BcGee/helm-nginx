@@ -14,9 +14,7 @@ spec:
       labels:
         app: nginx
     spec:
-      {{- if .Values.serviceAccount.create }}
       serviceAccountName: nginx
-      {{- end }}
       containers:
         - name: nginx
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -24,23 +22,15 @@ spec:
           ports:
             - containerPort: 80
           volumeMounts:
-            {{- if .Values.persistence.enabled }}
             - name: nginx-data
               mountPath: /usr/share/nginx/html
-            {{- end }}
-            {{- if .Values.secret.enabled }}
             - name: nginx-secret
               mountPath: /etc/nginx/secret
               readOnly: true
-            {{- end }}
       volumes:
-        {{- if .Values.persistence.enabled }}
         - name: nginx-data
           persistentVolumeClaim:
-            claimName: nginx
-        {{- end }}
-        {{- if .Values.secret.enabled }}
+            claimName: nginx-pvc
         - name: nginx-secret
           secret:
-            secretName: nginx
-        {{- end }}
+            secretName: nginx-secret
