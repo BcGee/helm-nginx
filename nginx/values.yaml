@@ -44,6 +44,8 @@ ingress:
     kubernetes.io/ingress.class: alb
     alb.ingress.kubernetes.io/scheme: internet-facing
     alb.ingress.kubernetes.io/target-type: ip
+  path: /
+  pathType: ImplementationSpecific
   # hosts 값을 아래처럼 직접 입력하세요.
   # hosts:
   #   - host: your.domain.com
