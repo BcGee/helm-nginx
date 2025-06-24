@@ -29,8 +29,8 @@ permissions:
   contents: write
 
 env:
-  AWS_REGION: ap-northeast-2
-  ECR_REGISTRY: 319867767576.dkr.ecr.ap-northeast-2.amazonaws.com
+  AWS_REGION: ${{ secrets.AWS_REGION || 'ap-northeast-2' }}
+  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY || '319867767576.dkr.ecr.ap-northeast-2.amazonaws.com' }}
 
 jobs:
   build-image:
@@ -69,87 +69,14 @@ jobs:
     - name: Login to Amazon ECR
       id: login-ecr
       uses: aws-actions/amazon-ecr-login@v1
-      
-    - name: Create ECR repository if not exists
-      run: |
-        aws ecr describe-repositories --repository-names nginx-${{ steps.set-defaults.outputs.image_type }} || \
-        aws ecr create-repository --repository-name nginx-${{ steps.set-defaults.outputs.image_type }}
         
-    - name: Create Dockerfile and index.html
+    - name: Prepare source files for Docker build
       run: |
         mkdir -p docker-build
         
-        # Check if source HTML exists, use it; otherwise create template based on image type
-        if [ -f "src/index.html" ]; then
-          echo "✅ Using source HTML file"
-          cp src/index.html docker-build/index.html
-          
-          # Add build info to source HTML
-          sed -i "s|Last updated:.*|Last updated: $(date '+%Y-%m-%d %H:%M:%S')|" docker-build/index.html
-          sed -i "s|</body>|<div class=\"info\"><p><strong>Build Info:</strong></p><p>Image: ${{ steps.set-defaults.outputs.image_type }}:${{ steps.set-defaults.outputs.image_tag }}</p><p>Chart: ${{ steps.set-defaults.outputs.chart_version }}</p><p>Commit: ${{ github.sha }}</p></div></body>|" docker-build/index.html
-        else
-          echo "📝 Creating template HTML based on image type"
-          # Create index.html based on image type
-          if [ "${{ steps.set-defaults.outputs.image_type }}" == "blue" ]; then
-            cat << 'EOF' > docker-build/index.html
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>NGINX BLUE</title>
-          <style>
-            body { 
-              background: linear-gradient(135deg, #1e90ff, #4169e1); 
-              color: white; 
-              font-family: Arial, sans-serif; 
-              text-align: center; 
-              padding: 50px;
-            }
-            h1 { font-size: 3em; margin: 20px 0; }
-            p { font-size: 1.5em; }
-            .version { background: rgba(255,255,255,0.2); padding: 10px; border-radius: 5px; margin: 20px 0; }
-          </style>
-        </head>
-        <body>
-          <h1>🔵 NGINX BLUE</h1>
-          <p>This is the BLUE version of NGINX</p>
-          <div class="version">Version: ${{ steps.set-defaults.outputs.image_tag }}</div>
-          <div class="version">Chart: ${{ steps.set-defaults.outputs.chart_version }}</div>
-          <p>Built with GitHub Actions CI/CD</p>
-          <div class="version">Commit: ${{ github.sha }}</div>
-        </body>
-        </html>
-        EOF
-          else
-            cat << 'EOF' > docker-build/index.html
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>NGINX GREEN</title>
-          <style>
-            body { 
-              background: linear-gradient(135deg, #32cd32, #228b22); 
-              color: white; 
-              font-family: Arial, sans-serif; 
-              text-align: center; 
-              padding: 50px;
-            }
-            h1 { font-size: 3em; margin: 20px 0; }
-            p { font-size: 1.5em; }
-            .version { background: rgba(255,255,255,0.2); padding: 10px; border-radius: 5px; margin: 20px 0; }
-          </style>
-        </head>
-        <body>
-          <h1>🟢 NGINX GREEN</h1>
-          <p>This is the GREEN version of NGINX</p>
-          <div class="version">Version: ${{ steps.set-defaults.outputs.image_tag }}</div>
-          <div class="version">Chart: ${{ steps.set-defaults.outputs.chart_version }}</div>
-          <p>Built with GitHub Actions CI/CD</p>
-          <div class="version">Commit: ${{ github.sha }}</div>
-        </body>
-        </html>
-        EOF
-          fi
-        fi
+        # Use source HTML file as-is
+        echo "✅ Copying source HTML file"
+        cp src/index.html docker-build/index.html
         
         # Create Dockerfile
         cat << 'EOF' > docker-build/Dockerfile
@@ -161,19 +88,19 @@ jobs:
     - name: Build Docker image
       run: |
         cd docker-build
-        echo "🐳 Building Docker image: nginx-${{ steps.set-defaults.outputs.image_type }}:${{ steps.set-defaults.outputs.image_tag }}"
-        docker build -t nginx-${{ steps.set-defaults.outputs.image_type }}:${{ steps.set-defaults.outputs.image_tag }} .
+        echo "🐳 Building Docker image: onboarding:${{ steps.set-defaults.outputs.image_tag }}"
+        docker build -t onboarding:${{ steps.set-defaults.outputs.image_tag }} .
         
     - name: Tag image for ECR
       run: |
         echo "🏷️ Tagging image for ECR"
-        docker tag nginx-${{ steps.set-defaults.outputs.image_type }}:${{ steps.set-defaults.outputs.image_tag }} \
-          ${{ env.ECR_REGISTRY }}/nginx-${{ steps.set-defaults.outputs.image_type }}:${{ steps.set-defaults.outputs.image_tag }}
+        docker tag onboarding:${{ steps.set-defaults.outputs.image_tag }} \
+          ${{ env.ECR_REGISTRY }}/onboarding:${{ steps.set-defaults.outputs.image_tag }}
         
     - name: Push image to ECR
       run: |
         echo "📤 Pushing image to ECR"
-        docker push ${{ env.ECR_REGISTRY }}/nginx-${{ steps.set-defaults.outputs.image_type }}:${{ steps.set-defaults.outputs.image_tag }}
+        docker push ${{ env.ECR_REGISTRY }}/onboarding:${{ steps.set-defaults.outputs.image_tag }}
         echo "✅ Image pushed successfully!"
         
     - name: Save build info
@@ -181,7 +108,7 @@ jobs:
         echo "IMAGE_TYPE=${{ steps.set-defaults.outputs.image_type }}" >> build-info.txt
         echo "IMAGE_TAG=${{ steps.set-defaults.outputs.image_tag }}" >> build-info.txt
         echo "CHART_VERSION=${{ steps.set-defaults.outputs.chart_version }}" >> build-info.txt
-        echo "ECR_IMAGE=${{ env.ECR_REGISTRY }}/nginx-${{ steps.set-defaults.outputs.image_type }}:${{ steps.set-defaults.outputs.image_tag }}" >> build-info.txt
+        echo "ECR_IMAGE=${{ env.ECR_REGISTRY }}/onboarding:${{ steps.set-defaults.outputs.image_tag }}" >> build-info.txt
         echo "COMMIT_SHA=${{ github.sha }}" >> build-info.txt
         
     - name: Upload build info

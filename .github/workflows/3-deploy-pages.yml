@@ -28,7 +28,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  ECR_REGISTRY: 319867767576.dkr.ecr.ap-northeast-2.amazonaws.com
+  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY || '319867767576.dkr.ecr.ap-northeast-2.amazonaws.com' }}
 
 jobs:
   deploy-pages:

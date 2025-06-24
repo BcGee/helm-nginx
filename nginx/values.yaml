@@ -1,11 +1,12 @@
 replicaCount: 2
 
 image:
-  repository: nginx
-  tag: "1.25.3"
-  pullPolicy: IfNotPresent
-  blue: 319867767576.dkr.ecr.ap-northeast-2.amazonaws.com/nginx-blue:blue
-  green: 319867767576.dkr.ecr.ap-northeast-2.amazonaws.com/nginx-green:green
+  repository: 319867767576.dkr.ecr.ap-northeast-2.amazonaws.com/onboarding
+  tag: latest
+  pullPolicy: Always
+  # Legacy blue/green support (deprecated)
+  blue: 319867767576.dkr.ecr.ap-northeast-2.amazonaws.com/onboarding:latest
+  green: 319867767576.dkr.ecr.ap-northeast-2.amazonaws.com/onboarding:latest
 
 serviceAccount:
   create: true

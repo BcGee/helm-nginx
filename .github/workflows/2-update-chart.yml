@@ -20,7 +20,7 @@ permissions:
   contents: write
 
 env:
-  ECR_REGISTRY: 319867767576.dkr.ecr.ap-northeast-2.amazonaws.com
+  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY || '319867767576.dkr.ecr.ap-northeast-2.amazonaws.com' }}
 
 jobs:
   update-chart:
@@ -55,7 +55,8 @@ jobs:
     - name: Update values.yaml with new image
       run: |
         echo "📝 Updating values.yaml with new image URL"
-        sed -i "s|${{ github.event.inputs.image_type }}: .*|${{ github.event.inputs.image_type }}: ${{ env.ECR_REGISTRY }}/nginx-${{ github.event.inputs.image_type }}:${{ github.event.inputs.image_tag }}|" nginx/values.yaml
+        sed -i "s|repository: .*|repository: ${{ env.ECR_REGISTRY }}/onboarding|" nginx/values.yaml
+        sed -i "s|tag: .*|tag: ${{ github.event.inputs.image_tag }}|" nginx/values.yaml
         echo "✅ values.yaml updated"
         
     - name: Update Chart.yaml version
@@ -63,16 +64,6 @@ jobs:
         echo "📊 Updating Chart.yaml version to ${{ github.event.inputs.chart_version }}"
         sed -i "s/^version:.*/version: ${{ github.event.inputs.chart_version }}/" nginx/Chart.yaml
         echo "✅ Chart.yaml updated"
-        
-    - name: Update Deployment to use selected image
-      run: |
-        echo "🔄 Updating deployment template to use ${{ github.event.inputs.image_type }} image"
-        if [ "${{ github.event.inputs.image_type }}" == "blue" ]; then
-          sed -i 's|image: "{{ .Values.image.green }}"|image: "{{ .Values.image.blue }}"|g' nginx/templates/deployment.yaml
-        else
-          sed -i 's|image: "{{ .Values.image.blue }}"|image: "{{ .Values.image.green }}"|g' nginx/templates/deployment.yaml
-        fi
-        echo "✅ Deployment template updated"
         
     - name: Package Helm chart
       run: |
