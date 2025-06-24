@@ -1,0 +1,206 @@
+name: 0. Integrated CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'docker/**'
+      - 'nginx/**'
+      - '.github/workflows/**'
+  workflow_dispatch:
+    inputs:
+      image_type:
+        description: 'Image type to build (blue or green)'
+        required: true
+        default: 'blue'
+        type: choice
+        options:
+        - blue
+        - green
+      image_tag:
+        description: 'Image tag (e.g., v1.0.0, latest)'
+        required: true
+        default: 'latest'
+        type: string
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: "ci-cd-pipeline"
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION || 'ap-northeast-2' }}
+  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY || '319867767576.dkr.ecr.ap-northeast-2.amazonaws.com' }}
+
+jobs:
+  integrated-pipeline:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.pages-deployment.outputs.page_url }}
+    
+    outputs:
+      image_type: ${{ steps.set-defaults.outputs.image_type }}
+      image_tag: ${{ steps.set-defaults.outputs.image_tag }}
+      chart_version: ${{ steps.set-defaults.outputs.chart_version }}
+    
+    steps:
+    # Step 1: Setup and Preparation
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Set default values for push events
+      id: set-defaults
+      run: |
+        if [ "${{ github.event_name }}" == "push" ]; then
+          echo "image_type=blue" >> $GITHUB_OUTPUT
+          echo "chart_version=$(date +1.%Y%m%d.%H%M)" >> $GITHUB_OUTPUT
+          echo "image_tag=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        else
+          echo "image_type=${{ github.event.inputs.image_type }}" >> $GITHUB_OUTPUT
+          echo "chart_version=$(date +1.%Y%m%d.%H%M)" >> $GITHUB_OUTPUT
+          echo "image_tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
+        fi
+        
+    # Step 2: Build and Push Docker Image
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+        
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+        
+    - name: Prepare source files for Docker build
+      run: |
+        mkdir -p docker-build
+        
+        # Use source HTML file as-is
+        echo "✅ Copying source HTML file"
+        cp src/index.html docker-build/index.html
+        
+        # Create Dockerfile
+        cat << 'EOF' > docker-build/Dockerfile
+        FROM nginx:alpine
+        COPY index.html /usr/share/nginx/html/index.html
+        EXPOSE 80
+        EOF
+        
+    - name: Build and Push Docker image
+      run: |
+        cd docker-build
+        echo "🐳 Building Docker image: onboarding:${{ steps.set-defaults.outputs.image_tag }}"
+        docker build -t onboarding:${{ steps.set-defaults.outputs.image_tag }} .
+        
+        echo "🏷️ Tagging image for ECR"
+        docker tag onboarding:${{ steps.set-defaults.outputs.image_tag }} \
+          ${{ env.ECR_REGISTRY }}/onboarding:${{ steps.set-defaults.outputs.image_tag }}
+        
+        echo "📤 Pushing image to ECR"
+        docker push ${{ env.ECR_REGISTRY }}/onboarding:${{ steps.set-defaults.outputs.image_tag }}
+        echo "✅ Image pushed successfully!"
+        
+    # Step 3: Update Helm Chart
+    - name: Set up Helm
+      uses: azure/setup-helm@v3
+      with:
+        version: '3.12.0'
+        
+    - name: Configure Git
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+    - name: Update Helm Chart
+      run: |
+        echo "📝 Updating values.yaml with new image URL"
+        sed -i "s|repository: .*|repository: ${{ env.ECR_REGISTRY }}/onboarding|" nginx/values.yaml
+        sed -i "s|tag: .*|tag: ${{ steps.set-defaults.outputs.image_tag }}|" nginx/values.yaml
+        echo "✅ values.yaml updated"
+        
+        echo "📊 Updating Chart.yaml version to ${{ steps.set-defaults.outputs.chart_version }}"
+        sed -i "s/^version:.*/version: ${{ steps.set-defaults.outputs.chart_version }}/" nginx/Chart.yaml
+        echo "✅ Chart.yaml updated"
+        
+        mkdir -p dist
+        echo "📦 Packaging Helm chart version ${{ steps.set-defaults.outputs.chart_version }}"
+        helm package nginx -d dist
+        echo "✅ Chart packaged successfully"
+        
+        echo "📋 Updating Helm repository index"
+        helm repo index dist --url https://bcgee.github.io/helm-nginx/
+        echo "✅ Repository index updated"
+        
+    # Step 4: Deploy to GitHub Pages
+    - name: Setup Pages
+      uses: actions/configure-pages@v5
+      
+    - name: Upload artifact for GitHub Pages
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: 'dist'
+        
+    - name: Deploy to GitHub Pages
+      id: pages-deployment
+      uses: actions/deploy-pages@v4
+      
+    - name: Verify Pages deployment
+      run: |
+        echo "🌐 GitHub Pages deployed successfully!"
+        echo "📍 URL: ${{ steps.pages-deployment.outputs.page_url }}"
+        echo "📦 Chart Version: ${{ steps.set-defaults.outputs.chart_version }}"
+        echo "🖼️ Image: onboarding:${{ steps.set-defaults.outputs.image_tag }}"
+        
+    # Step 5: Commit Changes and Create Release
+    - name: Commit and push changes
+      run: |
+        git add .
+        git commit -m "CI: Update nginx chart to v${{ steps.set-defaults.outputs.chart_version }} with onboarding:${{ steps.set-defaults.outputs.image_tag }}" || echo "No changes to commit"
+        git push origin main || echo "No changes to push"
+        echo "✅ Changes committed and pushed"
+        
+    - name: Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ steps.set-defaults.outputs.chart_version }}
+        release_name: Release v${{ steps.set-defaults.outputs.chart_version }}
+        body: |
+          🚀 **Automated Release v${{ steps.set-defaults.outputs.chart_version }}**
+          
+          ## 📦 Changes
+          - **Docker Image**: `onboarding:${{ steps.set-defaults.outputs.image_tag }}`
+          - **Chart Version**: `${{ steps.set-defaults.outputs.chart_version }}`
+          - **Commit**: `${{ github.sha }}`
+          
+          ## 🔗 Links
+          - **Helm Repository**: ${{ steps.pages-deployment.outputs.page_url }}
+          - **ECR Image**: `${{ env.ECR_REGISTRY }}/onboarding:${{ steps.set-defaults.outputs.image_tag }}`
+          
+          ## 📋 Installation
+          ```bash
+          helm repo add my-nginx https://bcgee.github.io/helm-nginx/
+          helm repo update my-nginx
+          helm upgrade --install my-nginx my-nginx/nginx --version ${{ steps.set-defaults.outputs.chart_version }}
+          ```
+          
+          ## ⚡ Pipeline Summary
+          ✅ Image Build & ECR Push  
+          ✅ Helm Chart Update  
+          ✅ GitHub Pages Deploy  
+          ✅ Release Creation  
+        draft: false
+        prerelease: false 

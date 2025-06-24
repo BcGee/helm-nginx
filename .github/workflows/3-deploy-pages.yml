@@ -72,6 +72,7 @@ jobs:
     - name: Trigger Release Creation
       uses: actions/github-script@v7
       with:
+        github-token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
         script: |
           github.rest.actions.createWorkflowDispatch({
             owner: context.repo.owner,
