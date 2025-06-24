@@ -2,7 +2,7 @@ replicaCount: 2
 
 image:
   repository: 319867767576.dkr.ecr.ap-northeast-2.amazonaws.com/onboarding
-  tag: f14fcf1
+  tag: 159ec21
   pullPolicy: Always
   # Legacy blue/green support (deprecated)
   blue: 319867767576.dkr.ecr.ap-northeast-2.amazonaws.com/onboarding:latest
