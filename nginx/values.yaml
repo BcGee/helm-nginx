@@ -4,6 +4,8 @@ image:
   repository: nginx
   tag: "1.25.3"
   pullPolicy: IfNotPresent
+  blue: 319867767576.dkr.ecr.ap-northeast-2.amazonaws.com/nginx-blue:blue
+  green: 319867767576.dkr.ecr.ap-northeast-2.amazonaws.com/nginx-green:green
 
 serviceAccount:
   create: true
