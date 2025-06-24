@@ -1,0 +1,212 @@
+name: 1. Build and Push Docker Image
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'docker/**'
+      - 'nginx/**'
+      - '.github/workflows/**'
+  workflow_dispatch:
+    inputs:
+      image_type:
+        description: 'Image type to build (blue or green)'
+        required: true
+        default: 'blue'
+        type: choice
+        options:
+        - blue
+        - green
+      image_tag:
+        description: 'Image tag (e.g., v1.0.0, latest)'
+        required: true
+        default: 'latest'
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  AWS_REGION: ap-northeast-2
+  ECR_REGISTRY: 319867767576.dkr.ecr.ap-northeast-2.amazonaws.com
+
+jobs:
+  build-image:
+    runs-on: ubuntu-latest
+    outputs:
+      image_type: ${{ steps.set-defaults.outputs.image_type }}
+      image_tag: ${{ steps.set-defaults.outputs.image_tag }}
+      chart_version: ${{ steps.set-defaults.outputs.chart_version }}
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: Set default values for push events
+      id: set-defaults
+      run: |
+        if [ "${{ github.event_name }}" == "push" ]; then
+          echo "image_type=blue" >> $GITHUB_OUTPUT
+          echo "chart_version=$(date +1.%Y%m%d.%H%M)" >> $GITHUB_OUTPUT
+          echo "image_tag=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        else
+          echo "image_type=${{ github.event.inputs.image_type }}" >> $GITHUB_OUTPUT
+          echo "chart_version=$(date +1.%Y%m%d.%H%M)" >> $GITHUB_OUTPUT
+          echo "image_tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
+        fi
+        
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+        
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+      
+    - name: Create ECR repository if not exists
+      run: |
+        aws ecr describe-repositories --repository-names nginx-${{ steps.set-defaults.outputs.image_type }} || \
+        aws ecr create-repository --repository-name nginx-${{ steps.set-defaults.outputs.image_type }}
+        
+    - name: Create Dockerfile and index.html
+      run: |
+        mkdir -p docker-build
+        
+        # Check if source HTML exists, use it; otherwise create template based on image type
+        if [ -f "src/index.html" ]; then
+          echo "✅ Using source HTML file"
+          cp src/index.html docker-build/index.html
+          
+          # Add build info to source HTML
+          sed -i "s|Last updated:.*|Last updated: $(date '+%Y-%m-%d %H:%M:%S')|" docker-build/index.html
+          sed -i "s|</body>|<div class=\"info\"><p><strong>Build Info:</strong></p><p>Image: ${{ steps.set-defaults.outputs.image_type }}:${{ steps.set-defaults.outputs.image_tag }}</p><p>Chart: ${{ steps.set-defaults.outputs.chart_version }}</p><p>Commit: ${{ github.sha }}</p></div></body>|" docker-build/index.html
+        else
+          echo "📝 Creating template HTML based on image type"
+          # Create index.html based on image type
+          if [ "${{ steps.set-defaults.outputs.image_type }}" == "blue" ]; then
+            cat << 'EOF' > docker-build/index.html
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>NGINX BLUE</title>
+          <style>
+            body { 
+              background: linear-gradient(135deg, #1e90ff, #4169e1); 
+              color: white; 
+              font-family: Arial, sans-serif; 
+              text-align: center; 
+              padding: 50px;
+            }
+            h1 { font-size: 3em; margin: 20px 0; }
+            p { font-size: 1.5em; }
+            .version { background: rgba(255,255,255,0.2); padding: 10px; border-radius: 5px; margin: 20px 0; }
+          </style>
+        </head>
+        <body>
+          <h1>🔵 NGINX BLUE</h1>
+          <p>This is the BLUE version of NGINX</p>
+          <div class="version">Version: ${{ steps.set-defaults.outputs.image_tag }}</div>
+          <div class="version">Chart: ${{ steps.set-defaults.outputs.chart_version }}</div>
+          <p>Built with GitHub Actions CI/CD</p>
+          <div class="version">Commit: ${{ github.sha }}</div>
+        </body>
+        </html>
+        EOF
+          else
+            cat << 'EOF' > docker-build/index.html
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>NGINX GREEN</title>
+          <style>
+            body { 
+              background: linear-gradient(135deg, #32cd32, #228b22); 
+              color: white; 
+              font-family: Arial, sans-serif; 
+              text-align: center; 
+              padding: 50px;
+            }
+            h1 { font-size: 3em; margin: 20px 0; }
+            p { font-size: 1.5em; }
+            .version { background: rgba(255,255,255,0.2); padding: 10px; border-radius: 5px; margin: 20px 0; }
+          </style>
+        </head>
+        <body>
+          <h1>🟢 NGINX GREEN</h1>
+          <p>This is the GREEN version of NGINX</p>
+          <div class="version">Version: ${{ steps.set-defaults.outputs.image_tag }}</div>
+          <div class="version">Chart: ${{ steps.set-defaults.outputs.chart_version }}</div>
+          <p>Built with GitHub Actions CI/CD</p>
+          <div class="version">Commit: ${{ github.sha }}</div>
+        </body>
+        </html>
+        EOF
+          fi
+        fi
+        
+        # Create Dockerfile
+        cat << 'EOF' > docker-build/Dockerfile
+        FROM nginx:alpine
+        COPY index.html /usr/share/nginx/html/index.html
+        EXPOSE 80
+        EOF
+        
+    - name: Build Docker image
+      run: |
+        cd docker-build
+        echo "🐳 Building Docker image: nginx-${{ steps.set-defaults.outputs.image_type }}:${{ steps.set-defaults.outputs.image_tag }}"
+        docker build -t nginx-${{ steps.set-defaults.outputs.image_type }}:${{ steps.set-defaults.outputs.image_tag }} .
+        
+    - name: Tag image for ECR
+      run: |
+        echo "🏷️ Tagging image for ECR"
+        docker tag nginx-${{ steps.set-defaults.outputs.image_type }}:${{ steps.set-defaults.outputs.image_tag }} \
+          ${{ env.ECR_REGISTRY }}/nginx-${{ steps.set-defaults.outputs.image_type }}:${{ steps.set-defaults.outputs.image_tag }}
+        
+    - name: Push image to ECR
+      run: |
+        echo "📤 Pushing image to ECR"
+        docker push ${{ env.ECR_REGISTRY }}/nginx-${{ steps.set-defaults.outputs.image_type }}:${{ steps.set-defaults.outputs.image_tag }}
+        echo "✅ Image pushed successfully!"
+        
+    - name: Save build info
+      run: |
+        echo "IMAGE_TYPE=${{ steps.set-defaults.outputs.image_type }}" >> build-info.txt
+        echo "IMAGE_TAG=${{ steps.set-defaults.outputs.image_tag }}" >> build-info.txt
+        echo "CHART_VERSION=${{ steps.set-defaults.outputs.chart_version }}" >> build-info.txt
+        echo "ECR_IMAGE=${{ env.ECR_REGISTRY }}/nginx-${{ steps.set-defaults.outputs.image_type }}:${{ steps.set-defaults.outputs.image_tag }}" >> build-info.txt
+        echo "COMMIT_SHA=${{ github.sha }}" >> build-info.txt
+        
+    - name: Upload build info
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-info
+        path: build-info.txt
+        retention-days: 1
+
+  trigger-next-workflow:
+    needs: build-image
+    runs-on: ubuntu-latest
+    steps:
+    - name: Trigger Helm Chart Update
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.actions.createWorkflowDispatch({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            workflow_id: '2-update-chart.yml',
+            ref: 'main',
+            inputs: {
+              image_type: '${{ needs.build-image.outputs.image_type }}',
+              image_tag: '${{ needs.build-image.outputs.image_tag }}',
+              chart_version: '${{ needs.build-image.outputs.chart_version }}'
+            }
+          }) 
