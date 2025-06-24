@@ -1,0 +1,427 @@
+name: 0. Integrated CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'docker/**'
+      - 'nginx/**'
+      - '.github/workflows/**'
+  workflow_dispatch:
+    inputs:
+      image_type:
+        description: 'Image type to build (blue or green)'
+        required: true
+        default: 'blue'
+        type: choice
+        options:
+        - blue
+        - green
+      image_tag:
+        description: 'Image tag (e.g., v1.0.0, latest)'
+        required: true
+        default: 'latest'
+        type: string
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: "ci-cd-pipeline"
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION || 'ap-northeast-2' }}
+  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY || '319867767576.dkr.ecr.ap-northeast-2.amazonaws.com' }}
+
+jobs:
+  # Job 1: Build and Push Docker Image
+  build-image:
+    name: 🐳 Build & Push Docker Image
+    runs-on: ubuntu-latest
+    
+    outputs:
+      image_type: ${{ steps.set-defaults.outputs.image_type }}
+      image_tag: ${{ steps.set-defaults.outputs.image_tag }}
+      chart_version: ${{ steps.set-defaults.outputs.chart_version }}
+    
+    steps:
+    - name: 📋 Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: 🔧 Set default values for push events
+      id: set-defaults
+      run: |
+        echo "🚀 Starting CI/CD Pipeline..."
+        echo "📅 Timestamp: $(date '+%Y-%m-%d %H:%M:%S')"
+        echo "🔀 Event: ${{ github.event_name }}"
+        echo "📝 Commit: ${{ github.sha }}"
+        echo ""
+        
+        # Get current chart version and increment it
+        echo "📊 Determining next chart version..."
+        CURRENT_VERSION=$(grep '^version:' nginx/Chart.yaml | cut -d' ' -f2)
+        echo "  • Current version: $CURRENT_VERSION"
+        
+        # Extract version parts (assuming format like 1.1.6)
+        if [[ $CURRENT_VERSION =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+          MAJOR=${BASH_REMATCH[1]}
+          MINOR=${BASH_REMATCH[2]}
+          PATCH=${BASH_REMATCH[3]}
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
+        else
+          # If current version is not semantic, start from 1.1.7
+          echo "  ⚠️ Current version format not recognized, starting from 1.1.7"
+          NEW_VERSION="1.1.7"
+        fi
+        
+        echo "  • New version: $NEW_VERSION"
+        
+        if [ "${{ github.event_name }}" == "push" ]; then
+          echo "📦 Push event detected - setting default values"
+          echo "image_type=blue" >> $GITHUB_OUTPUT
+          echo "chart_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "image_tag=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        else
+          echo "🎛️ Manual workflow dispatch - using input values"
+          echo "image_type=${{ github.event.inputs.image_type }}" >> $GITHUB_OUTPUT
+          echo "chart_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "image_tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
+        fi
+        
+        echo ""
+        echo "📋 Build Configuration:"
+        echo "  • Image Type: $(echo '${{ github.event_name }}' == 'push' && echo 'blue' || echo '${{ github.event.inputs.image_type }}')"
+        echo "  • Chart Version: $NEW_VERSION"
+        echo "  • Image Tag: $(echo '${{ github.event_name }}' == 'push' && git rev-parse --short HEAD || echo '${{ github.event.inputs.image_tag }}')"
+        echo "✅ Configuration set successfully"
+        
+    - name: 🔐 Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+        
+    - name: 🔓 Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+      
+    - name: 📄 Check ECR login result
+      run: |
+        echo "🔍 ECR Login Status:"
+        echo "  • Registry: ${{ env.ECR_REGISTRY }}"
+        echo "  • Region: ${{ env.AWS_REGION }}"
+        echo "✅ ECR authentication successful"
+        
+    - name: 📁 Prepare source files for Docker build
+      run: |
+        echo "📦 Preparing Docker build context..."
+        mkdir -p docker-build
+        
+        echo "📄 Checking source files:"
+        if [ -f "src/index.html" ]; then
+          echo "  ✅ src/index.html found"
+          echo "  📋 File size: $(stat -c%s src/index.html) bytes"
+        else
+          echo "  ❌ src/index.html not found"
+          exit 1
+        fi
+        
+        echo "📋 Copying source HTML file"
+        cp src/index.html docker-build/index.html
+        echo "  ✅ HTML file copied to docker-build/"
+        
+        echo "🐳 Creating Dockerfile"
+        cat << 'EOF' > docker-build/Dockerfile
+        FROM nginx:alpine
+        COPY index.html /usr/share/nginx/html/index.html
+        EXPOSE 80
+        EOF
+        echo "  ✅ Dockerfile created"
+        
+        echo "📋 Build context ready:"
+        echo "  • Files: $(ls -la docker-build/)"
+        
+    - name: 🐳 Build and Push Docker image
+      run: |
+        cd docker-build
+        
+        echo "🔨 Building Docker image..."
+        echo "  • Image name: onboarding:${{ steps.set-defaults.outputs.image_tag }}"
+        echo "  • Build context: $(pwd)"
+        
+        docker build -t onboarding:${{ steps.set-defaults.outputs.image_tag }} .
+        echo "  ✅ Docker image built successfully"
+        
+        echo ""
+        echo "🏷️ Tagging image for ECR..."
+        echo "  • Source: onboarding:${{ steps.set-defaults.outputs.image_tag }}"
+        echo "  • Target: ${{ env.ECR_REGISTRY }}/onboarding:${{ steps.set-defaults.outputs.image_tag }}"
+        
+        docker tag onboarding:${{ steps.set-defaults.outputs.image_tag }} \
+          ${{ env.ECR_REGISTRY }}/onboarding:${{ steps.set-defaults.outputs.image_tag }}
+        echo "  ✅ Image tagged for ECR"
+        
+        echo ""
+        echo "📤 Pushing image to ECR..."
+        echo "  • Registry: ${{ env.ECR_REGISTRY }}"
+        echo "  • Repository: onboarding"
+        echo "  • Tag: ${{ steps.set-defaults.outputs.image_tag }}"
+        
+        docker push ${{ env.ECR_REGISTRY }}/onboarding:${{ steps.set-defaults.outputs.image_tag }}
+        echo "  ✅ Image pushed successfully!"
+        
+        echo ""
+        echo "📊 Image Information:"
+        echo "  • Full Image URL: ${{ env.ECR_REGISTRY }}/onboarding:${{ steps.set-defaults.outputs.image_tag }}"
+        echo "  • Size: $(docker images onboarding:${{ steps.set-defaults.outputs.image_tag }} --format 'table {{.Size}}' | tail -n1)"
+
+  # Job 2: Update Helm Chart
+  update-chart:
+    name: 📝 Update Helm Chart
+    runs-on: ubuntu-latest
+    needs: build-image
+    
+    outputs:
+      chart_version: ${{ needs.build-image.outputs.chart_version }}
+      image_tag: ${{ needs.build-image.outputs.image_tag }}
+    
+    steps:
+    - name: 📋 Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: ⚙️ Set up Helm
+      uses: azure/setup-helm@v3
+      with:
+        version: '3.12.0'
+        
+    - name: 📋 Check Helm installation
+      run: |
+        echo "🔍 Helm Environment:"
+        echo "  • Version: $(helm version --short)"
+        echo "  • Client: $(helm version --client --short)"
+        echo "✅ Helm ready"
+        
+    - name: 🔧 Configure Git
+      run: |
+        echo "⚙️ Configuring Git for commits..."
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        echo "  ✅ Git configuration complete"
+        
+    - name: 📝 Update Helm Chart
+      run: |
+        echo "📊 Updating Helm Chart..."
+        echo "  • Chart location: nginx/"
+        echo "  • New image: ${{ env.ECR_REGISTRY }}/onboarding:${{ needs.build-image.outputs.image_tag }}"
+        echo "  • New version: ${{ needs.build-image.outputs.chart_version }}"
+        echo ""
+        
+        echo "📝 Updating values.yaml..."
+        echo "  • Before: $(grep -E 'repository:|tag:' nginx/values.yaml | head -2)"
+        
+        sed -i "s|repository: .*|repository: ${{ env.ECR_REGISTRY }}/onboarding|" nginx/values.yaml
+        sed -i "s|tag: .*|tag: ${{ needs.build-image.outputs.image_tag }}|" nginx/values.yaml
+        
+        echo "  • After: $(grep -E 'repository:|tag:' nginx/values.yaml | head -2)"
+        echo "  ✅ values.yaml updated"
+        echo ""
+        
+        echo "📊 Updating Chart.yaml version..."
+        echo "  • Before: $(grep '^version:' nginx/Chart.yaml)"
+        
+        sed -i "s/^version:.*/version: ${{ needs.build-image.outputs.chart_version }}/" nginx/Chart.yaml
+        
+        echo "  • After: $(grep '^version:' nginx/Chart.yaml)"
+        echo "  ✅ Chart.yaml updated"
+        echo ""
+        
+        echo "📦 Packaging Helm chart..."
+        mkdir -p dist
+        helm package nginx -d dist
+        
+        echo "  📋 Package info:"
+        echo "  • Files created: $(ls -la dist/)"
+        echo "  ✅ Chart packaged successfully"
+        echo ""
+        
+        echo "📋 Updating Helm repository index..."
+        helm repo index dist --url https://bcgee.github.io/helm-nginx/
+        
+        echo "  📄 Index contents:"
+        echo "  • Entries: $(grep -c 'name:' dist/index.yaml || echo '0') charts"
+        echo "  ✅ Repository index updated"
+        
+    - name: 📤 Upload chart artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: helm-charts
+        path: dist/
+        retention-days: 1
+
+  # Job 3: Deploy to GitHub Pages
+  deploy-pages:
+    name: 🌐 Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: update-chart
+    environment:
+      name: github-pages
+      url: ${{ steps.pages-deployment.outputs.page_url }}
+    
+    outputs:
+      page_url: ${{ steps.pages-deployment.outputs.page_url }}
+    
+    steps:
+    - name: 📥 Download chart artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: helm-charts
+        path: dist/
+        
+    - name: 🔧 Setup Pages
+      uses: actions/configure-pages@v5
+      
+    - name: 📤 Upload artifact for GitHub Pages
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: 'dist'
+        
+    - name: 🌐 Deploy to GitHub Pages
+      id: pages-deployment
+      uses: actions/deploy-pages@v4
+      
+    - name: ✅ Verify Pages deployment
+      run: |
+        echo "🌐 GitHub Pages Deployment Complete!"
+        echo "  📍 URL: ${{ steps.pages-deployment.outputs.page_url }}"
+        echo "  📦 Chart Version: ${{ needs.update-chart.outputs.chart_version }}"
+        echo "  🖼️ Image: onboarding:${{ needs.update-chart.outputs.image_tag }}"
+        echo "  📊 Repository: https://bcgee.github.io/helm-nginx/"
+        echo ""
+        echo "🔍 Deployment verification:"
+        echo "  • Pages URL available: ${{ steps.pages-deployment.outputs.page_url }}"
+        echo "  • Chart accessible at: ${{ steps.pages-deployment.outputs.page_url }}"
+        echo "  ✅ Pages deployment verified"
+
+  # Job 4: Commit Changes and Create Release
+  finalize:
+    name: 🏷️ Finalize & Release
+    runs-on: ubuntu-latest
+    needs: [build-image, update-chart, deploy-pages]
+    
+    steps:
+    - name: 📋 Checkout repository
+      uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        
+    - name: 📥 Download chart artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: helm-charts
+        path: dist/
+        
+    - name: 🔧 Configure Git
+      run: |
+        echo "⚙️ Configuring Git for commits..."
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        echo "  ✅ Git configuration complete"
+        
+    - name: 📝 Update files for commit
+      run: |
+        echo "📝 Updating values.yaml..."
+        sed -i "s|repository: .*|repository: ${{ env.ECR_REGISTRY }}/onboarding|" nginx/values.yaml
+        sed -i "s|tag: .*|tag: ${{ needs.build-image.outputs.image_tag }}|" nginx/values.yaml
+        echo "  ✅ values.yaml updated"
+        
+        echo "📊 Updating Chart.yaml version..."
+        sed -i "s/^version:.*/version: ${{ needs.build-image.outputs.chart_version }}/" nginx/Chart.yaml
+        echo "  ✅ Chart.yaml updated"
+        
+    - name: 💾 Commit and push changes
+      run: |
+        echo "💾 Committing changes to repository..."
+        
+        echo "📋 Git status before commit:"
+        git status --porcelain
+        
+        git add .
+        
+        if git diff --staged --quiet; then
+          echo "  ℹ️ No changes to commit"
+        else
+          echo "  📝 Committing changes..."
+          git commit -m "CI: Update nginx chart to v${{ needs.build-image.outputs.chart_version }} with onboarding:${{ needs.build-image.outputs.image_tag }}"
+          echo "  ✅ Changes committed"
+          
+          echo "  📤 Pushing to remote..."
+          git push origin main
+          echo "  ✅ Changes pushed to GitHub"
+        fi
+        
+    - name: 🏷️ Create GitHub Release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ needs.build-image.outputs.chart_version }}
+        release_name: Release v${{ needs.build-image.outputs.chart_version }}
+        body: |
+          🚀 **Automated Release v${{ needs.build-image.outputs.chart_version }}**
+          
+          ## 📦 Changes
+          - **Docker Image**: `onboarding:${{ needs.build-image.outputs.image_tag }}`
+          - **Chart Version**: `${{ needs.build-image.outputs.chart_version }}`
+          - **Commit**: `${{ github.sha }}`
+          
+          ## 🔗 Links
+          - **Helm Repository**: ${{ needs.deploy-pages.outputs.page_url }}
+          - **ECR Image**: `${{ env.ECR_REGISTRY }}/onboarding:${{ needs.build-image.outputs.image_tag }}`
+          
+          ## 📋 Installation
+          ```bash
+          helm repo add my-nginx https://bcgee.github.io/helm-nginx/
+          helm repo update my-nginx
+          helm upgrade --install my-nginx my-nginx/nginx --version ${{ needs.build-image.outputs.chart_version }}
+          ```
+          
+          ## ⚡ Pipeline Summary
+          ✅ Image Build & ECR Push  
+          ✅ Helm Chart Update  
+          ✅ GitHub Pages Deploy  
+          ✅ Release Creation  
+        draft: false
+        prerelease: false
+        
+    - name: 🎉 Pipeline Summary
+      run: |
+        echo ""
+        echo "🎉 CI/CD Pipeline Completed Successfully!"
+        echo ""
+        echo "📋 Final Summary:"
+        echo "  🐳 Docker Image: onboarding:${{ needs.build-image.outputs.image_tag }}"
+        echo "  📦 Chart Version: v${{ needs.build-image.outputs.chart_version }}"
+        echo "  🏷️ ECR Image: ${{ env.ECR_REGISTRY }}/onboarding:${{ needs.build-image.outputs.image_tag }}"
+        echo "  🌐 Helm Repo: ${{ needs.deploy-pages.outputs.page_url }}"
+        echo "  📊 Release: v${{ needs.build-image.outputs.chart_version }}"
+        echo ""
+        echo "✅ All jobs completed successfully!"
+        echo "🚀 Your application is ready for deployment!"
+        echo ""
+        echo "📖 Next steps:"
+        echo "  1. Check the GitHub Release for deployment instructions"
+        echo "  2. Use the Helm commands to deploy to your cluster"
+        echo "  3. Monitor your application deployment"
+        echo "" 
