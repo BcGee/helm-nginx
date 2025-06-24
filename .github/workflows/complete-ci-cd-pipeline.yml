@@ -257,7 +257,7 @@ jobs:
         echo ""
         
         echo "📋 Updating Helm repository index..."
-        helm repo index dist --url https://bcgee.github.io/helm-nginx/
+        helm repo index dist --url https://bcgee.github.io/helm-nginx/dist
         
         echo "  📄 Index contents:"
         echo "  • Entries: $(grep -c 'name:' dist/index.yaml || echo '0') charts"
