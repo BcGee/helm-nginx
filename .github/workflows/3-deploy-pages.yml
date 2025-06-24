@@ -1,5 +1,23 @@
-name: 3. Deploy to GitHub Pages
+name: 3. Deploy to GitHub Pages (DISABLED - Use 0-integrated-pipeline.yml)
 
+# Disabled in favor of integrated pipeline
+# on:
+#   workflow_dispatch:
+#     inputs:
+#       chart_version:
+#         description: 'Chart version'
+#         required: true
+#         type: string
+#       image_type:
+#         description: 'Image type'
+#         required: true
+#         type: string
+#       image_tag:
+#         description: 'Image tag'
+#         required: true
+#         type: string
+
+# Manual trigger only for testing
 on:
   workflow_dispatch:
     inputs:

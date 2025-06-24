@@ -1,14 +1,33 @@
-name: 1. Build and Push Docker Image
+name: 1. Build and Push Docker Image (DISABLED - Use 0-integrated-pipeline.yml)
 
+# Disabled in favor of integrated pipeline
+# on:
+#   push:
+#     branches:
+#       - main
+#     paths:
+#       - 'src/**'
+#       - 'docker/**'
+#       - 'nginx/**'
+#       - '.github/workflows/**'
+#   workflow_dispatch:
+#     inputs:
+#       image_type:
+#         description: 'Image type to build (blue or green)'
+#         required: true
+#         default: 'blue'
+#         type: choice
+#         options:
+#         - blue
+#         - green
+#       image_tag:
+#         description: 'Image tag (e.g., v1.0.0, latest)'
+#         required: true
+#         default: 'latest'
+#         type: string
+
+# Manual trigger only for testing
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'src/**'
-      - 'docker/**'
-      - 'nginx/**'
-      - '.github/workflows/**'
   workflow_dispatch:
     inputs:
       image_type:
