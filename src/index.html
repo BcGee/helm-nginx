@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>NGINX - Blue/Green Deployment</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            text-align: center; 
+            padding: 50px;
+            margin: 0;
+        }
+        h1 { 
+            font-size: 3em; 
+            margin: 20px 0; 
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        p { 
+            font-size: 1.5em; 
+            margin: 15px 0;
+        }
+        .version { 
+            background: rgba(255,255,255,0.2); 
+            padding: 15px; 
+            border-radius: 10px; 
+            margin: 20px auto; 
+            max-width: 400px;
+            font-weight: bold;
+        }
+        .info {
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 30px auto;
+            max-width: 500px;
+        }
+        .emoji {
+            font-size: 4em;
+            margin: 20px 0;
+        }
+        
+        /* NGINX BLUE 스타일 */
+        .blue-theme {
+            background: linear-gradient(135deg, #1e90ff, #4169e1, #0000cd); 
+            color: white;
+            min-height: 100vh;
+        }
+        
+        /* NGINX GREEN 스타일 (주석처리된 상태에서 사용할 스타일) */
+        /*
+        .green-theme {
+            background: linear-gradient(135deg, #32cd32, #228b22, #006400); 
+            color: white;
+            min-height: 100vh;
+        }
+        */
+    </style>
+</head>
+
+<!-- NGINX BLUE 활성화 -->
+<body class="blue-theme">
+    <div class="emoji">🔵</div>
+    <h1>NGINX BLUE</h1>
+    <p>This is the <strong>BLUE</strong> version of NGINX</p>
+    <div class="version">Version: Blue Environment</div>
+    <div class="version">Status: Active 🟢</div>
+    <p>Built with GitHub Actions CI/CD Pipeline</p>
+    <p>Last updated: 2024-12-01 15:30:00</p>
+    
+    <div class="info">
+        <p><strong>Deployment Info:</strong></p>
+        <p>🐳 Container: nginx-blue</p>
+        <p>🔄 Deployment: Blue/Green Strategy</p>
+        <p>☸️ Platform: Kubernetes (EKS)</p>
+        <p>🚀 CI/CD: GitHub Actions</p>
+    </div>
+</body>
+
+<!-- NGINX GREEN (주석처리) 
+<body class="green-theme">
+    <div class="emoji">🟢</div>
+    <h1>NGINX GREEN</h1>
+    <p>This is the <strong>GREEN</strong> version of NGINX</p>
+    <div class="version">Version: Green Environment</div>
+    <div class="version">Status: Standby 🟡</div>
+    <p>Built with GitHub Actions CI/CD Pipeline</p>
+    <p>Last updated: 2024-12-01 15:30:00</p>
+    
+    <div class="info">
+        <p><strong>Deployment Info:</strong></p>
+        <p>🐳 Container: nginx-green</p>
+        <p>🔄 Deployment: Blue/Green Strategy</p>
+        <p>☸️ Platform: Kubernetes (EKS)</p>
+        <p>🚀 CI/CD: GitHub Actions</p>
+    </div>
+</body>
+-->
+
+</html> 
