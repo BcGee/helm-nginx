@@ -65,22 +65,42 @@ jobs:
         echo "📝 Commit: ${{ github.sha }}"
         echo ""
         
+        # Get current chart version and increment it
+        echo "📊 Determining next chart version..."
+        CURRENT_VERSION=$(grep '^version:' nginx/Chart.yaml | cut -d' ' -f2)
+        echo "  • Current version: $CURRENT_VERSION"
+        
+        # Extract version parts (assuming format like 1.1.6)
+        if [[ $CURRENT_VERSION =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+          MAJOR=${BASH_REMATCH[1]}
+          MINOR=${BASH_REMATCH[2]}
+          PATCH=${BASH_REMATCH[3]}
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="$MAJOR.$MINOR.$NEW_PATCH"
+        else
+          # If current version is not semantic, start from 1.1.7
+          echo "  ⚠️ Current version format not recognized, starting from 1.1.7"
+          NEW_VERSION="1.1.7"
+        fi
+        
+        echo "  • New version: $NEW_VERSION"
+        
         if [ "${{ github.event_name }}" == "push" ]; then
           echo "📦 Push event detected - setting default values"
           echo "image_type=blue" >> $GITHUB_OUTPUT
-          echo "chart_version=$(date +1.%Y%m%d.%H%M)" >> $GITHUB_OUTPUT
+          echo "chart_version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "image_tag=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
         else
           echo "🎛️ Manual workflow dispatch - using input values"
           echo "image_type=${{ github.event.inputs.image_type }}" >> $GITHUB_OUTPUT
-          echo "chart_version=$(date +1.%Y%m%d.%H%M)" >> $GITHUB_OUTPUT
+          echo "chart_version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "image_tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
         fi
         
         echo ""
         echo "📋 Build Configuration:"
         echo "  • Image Type: $(echo '${{ github.event_name }}' == 'push' && echo 'blue' || echo '${{ github.event.inputs.image_type }}')"
-        echo "  • Chart Version: $(date +1.%Y%m%d.%H%M)"
+        echo "  • Chart Version: $NEW_VERSION"
         echo "  • Image Tag: $(echo '${{ github.event_name }}' == 'push' && git rev-parse --short HEAD || echo '${{ github.event.inputs.image_tag }}')"
         echo "✅ Configuration set successfully"
         
