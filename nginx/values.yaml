@@ -58,6 +58,4 @@ pvc:
 pv:
   size: 1Gi
   accessMode: ReadWriteOnce
-  hostPath: /mnt/data/nginx
-
-indexConfigMapName: nginx-index 
+  hostPath: /mnt/data/nginx 
